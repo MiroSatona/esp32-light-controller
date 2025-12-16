@@ -1,0 +1,14 @@
+idf_component_register(
+    SRCS
+        "main.c"
+        "led/led.c"
+        "sensor/sensor.c"
+    INCLUDE_DIRS
+        "."
+        "led"
+        "sensor"
+    PRIV_REQUIRES
+        esp_driver_gpio
+        esp_driver_ledc
+        driver        
+)
