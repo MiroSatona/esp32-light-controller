@@ -172,7 +172,7 @@ esp_err_t ledsInit(void){
         // If brightness is lower than minimum threshold, set hysteresis to on state
         if ((float)brightness <= MIN_THRESHOLD) {
             hysteresis = true;
-        // If brightness is higher than maximum threshold, set LED to minimum brightness (OFF)
+        // If brightness is higher than maximum threshold, turn off the led
         } else {
             result = ledc_set_duty(LEDC_LOW_SPEED_MODE, LED_THRESH_CHANNEL, LED_PWM_MIN);
             if (result != ESP_OK) {
@@ -208,7 +208,7 @@ esp_err_t ledsInit(void){
 
     // Calculate threshold interval
     float thresholdInterval = (MAX_THRESHOLD - MIN_THRESHOLD);
-    // If threshold interval is too small, set LED to minimum brightness (OFF)
+    // If threshold interval is too small, turn off the LED
     if (thresholdInterval <= 0.0001f) {
         result = ledc_set_duty(LEDC_LOW_SPEED_MODE, LED_THRESH_CHANNEL, LED_PWM_MIN);
         if (result != ESP_OK) {
