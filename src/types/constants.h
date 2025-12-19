@@ -110,4 +110,24 @@
 // Conversion factor from raw sensor value to lux from datasheet
 #define BH1750_CONVERSION           1.2f
 
+/**
+ * ============================================================= 
+ *                   NONVOLATILE CONSTANTS
+ * =============================================================
+*/
+
+// NVS namespace for storing configuration
+#define NVS_NAMESPACE   "IMP_PROJECT"
+// NVS key for storing configuration
+#define NVS_KEY         "IMP_PROJECT_CONFIG"
+
+/**
+ * ============================================================= 
+ *                   MIAN MODULE CONSTANTS
+ * =============================================================
+*/
+
+// Default time for next measurement in milliseconds
+#define DEFAULT_TIME_FOR_NEXT_MEASUREMENT   200
+
 #endif // CONSTANTS_H
