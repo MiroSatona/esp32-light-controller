@@ -1,7 +1,7 @@
 /**
  * @file led.c
  * @author Martin Zůbek, 
- * @brief Source file for LED init and handle brightness independent on threshold or without threshold.
+ * @brief Source file for LEDs init and handle brightness and handle thresholds.
  * @date 2025-12-16
  */
 
@@ -18,11 +18,19 @@
 
 
 // Minimum treshold for LED with threshold
-static float MIN_THRESHOLD = LUX_MIN;
+static float MIN_THRESHOLD = DEFAULT_LUX_MIN;
 // Maximum treshold for LED with threshold
-static float MAX_THRESHOLD = LUX_MAX;
-// Flag for hysteresis state
-static bool hysteresis = false;
+static float MAX_THRESHOLD = DEFAULT_LUX_MAX;
+// Number of samples for hysteresis debounce
+static unsigned int HYSTERESIS_SAMPLES = HYSTERESIS_COUNT_MIN;
+// Flag for hysteresis state above
+static bool HYSTERESIS_STATE_ABOVE = false;
+// Flag for hysteresis state bellow
+static bool HYSTERESIS_STATE_BELLOW = false;
+// Value for hysteresis samples
+static unsigned int HYSTERESIS_COUNTER_ABOVE = 0;
+// Counter for hysteresis above maximum threshold
+static unsigned int HYSTERESIS_COUNTER_BELLOW = 0;
 
 esp_err_t ledsInit(void){
 
@@ -48,15 +56,15 @@ esp_err_t ledsInit(void){
         return result;
     }
 
-    // Create configuration for channel of LED without threshold
+    // Create configuration for channel of LED on PIN 25
     ledc_channel_config_t ledChanelConfig;
     memset(&ledChanelConfig, 0, sizeof(ledc_channel_config_t));
 
     // Set channel parameters
     ledChanelConfig.speed_mode = LEDC_LOW_SPEED_MODE;
-    ledChanelConfig.channel    = LED_CHANNEL;
+    ledChanelConfig.channel    = LED_CHANNEL_25;
     ledChanelConfig.timer_sel  = LEDC_TIMER_0;
-    ledChanelConfig.gpio_num   = LED_GPIO;
+    ledChanelConfig.gpio_num   = LED_GPIO_PIN_25;
     ledChanelConfig.duty       = 0;
     ledChanelConfig.hpoint     = 0;
 
@@ -64,194 +72,165 @@ esp_err_t ledsInit(void){
     result = ledc_channel_config(&ledChanelConfig);
     // Check for errors
     if (result != ESP_OK) {
-        ESP_LOGE(LED_LOG, "ERROR: Configuration of the channel for LED without threshold failed: %s.", esp_err_to_name(result));
+        ESP_LOGE(LED_LOG, "ERROR: Configuration of the channel on PIN 25 failed: %s.", esp_err_to_name(result));
         return result;
     }
 
-    // Create configuration for channel of LED with threshold
-    ledc_channel_config_t ledChanelThreshConfig;
-    memset(&ledChanelThreshConfig, 0, sizeof(ledc_channel_config_t));
-
-    // Set channel parameters
-    ledChanelThreshConfig.speed_mode = LEDC_LOW_SPEED_MODE;
-    ledChanelThreshConfig.channel    = LED_THRESH_CHANNEL;
-    ledChanelThreshConfig.timer_sel  = LEDC_TIMER_0;
-    ledChanelThreshConfig.gpio_num   = LED_THRESH_GPIO;
-    ledChanelThreshConfig.duty       = 0;
-    ledChanelThreshConfig.hpoint     = 0;
+    // Change setting of channel configuration structure for LED on PIN 26
+    ledChanelConfig.gpio_num   = LED_GPIO_PIN_26;
+    ledChanelConfig.channel = LED_CHANNEL_26; 
 
     // Configure channel
-    result = ledc_channel_config(&ledChanelThreshConfig);
+    result = ledc_channel_config(&ledChanelConfig);
     // Check for errors
     if (result != ESP_OK) {
-        ESP_LOGE(LED_LOG, "ERROR: Configuration of the channel for LED with threshold failed: %s.", esp_err_to_name(result));
+        ESP_LOGE(LED_LOG, "ERROR: Configuration of the channel for LED on PIN 26 failed: %s.", esp_err_to_name(result));
         return result;
     }
 
     return ESP_OK;
 }
 
- esp_err_t setBrightnessWithNoThreshold(uint32_t brightness){
+esp_err_t setDuty(uint32_t duty){
 
-    // Variable for storing result of setting duty and updating duty on LED
+    // Result of the function
     esp_err_t result = ESP_OK;
 
-    // If brightness is higher than maximum lux, turn off the LED
-    if (brightness >= LUX_MAX) {
-        // Set duty to minimum value
-        result = ledc_set_duty(LEDC_LOW_SPEED_MODE, LED_CHANNEL, LED_PWM_MIN);
-        // Check the result
-        if (result != ESP_OK) {
-            ESP_LOGE(LED_LOG, "ERROR: Setting duty for LED without threshold failed: %s.", esp_err_to_name(result));
-            return result;
-        }
-        // Update the duty
-        result = ledc_update_duty(LEDC_LOW_SPEED_MODE, LED_CHANNEL);
-        // Check the result
-        if (result != ESP_OK) {
-            ESP_LOGE(LED_LOG, "ERROR: Updating duty for LED without threshold failed: %s.", esp_err_to_name(result));
-            return result;
-        }
+    /**
+     * ==================================================================================================
+     *                            SET DUTY FOR LEDS ON PIN 25 AND PIN 26
+     * ================================================================================================== 
+     */
 
+    result  = ledc_set_duty(LEDC_LOW_SPEED_MODE, LED_CHANNEL_25, duty);
+    if (result != ESP_OK){
+        ESP_LOGE(LED_LOG, "ERROR: Setting duty for LED on PIN 25 failed: %s.", esp_err_to_name(result));
         return result;
     }
 
-    // If brightness is lower than minimum lux, set LED to maximum brightness
-    if (brightness <= LUX_MIN) {
-        // Set duty to maximum value
-        result = ledc_set_duty(LEDC_LOW_SPEED_MODE, LED_CHANNEL, LED_PWM_MAX);
-        // Check the result
-        if (result != ESP_OK) {
-            ESP_LOGE(LED_LOG, "ERROR: Setting duty for LED without threshold failed: %s.", esp_err_to_name(result));
-            return result;
-        }
-        // Update the duty
-        result = ledc_update_duty(LEDC_LOW_SPEED_MODE, LED_CHANNEL);
-        // Check the result
-        if (result != ESP_OK) {
-            ESP_LOGE(LED_LOG, "ERROR: Updating duty for LED without threshold failed: %s.", esp_err_to_name(result));
-            return result;
-        }
-
+    result = ledc_set_duty(LEDC_LOW_SPEED_MODE, LED_CHANNEL_26, duty);
+    if (result != ESP_OK){
+        ESP_LOGE(LED_LOG, "ERROR: Setting duty for LED on PIN 26 failed: %s.", esp_err_to_name(result));
         return result;
     }
 
-    // Normalize brightness value and invert it
-    float normalized =  1.0f - ((float)brightness / LUX_MAX);
-    // Apply gamma correction for human eye
-    float gammaCorrected = powf(normalized, GAMMA_REDUCTION);
-    // Calculate duty
-    uint32_t duty = (uint32_t)(gammaCorrected * LED_PWM_MAX);
+    /**
+     * ==================================================================================================
+     *                             UPDATE DUTY FOR LEDS ON PIN 25 AND PIN 26
+     * ================================================================================================== 
+     */
 
-    // Set calculated duty for LED
-    result = ledc_set_duty(LEDC_LOW_SPEED_MODE, LED_CHANNEL, duty);
-    // Check the result
-    if (result != ESP_OK) {
-        ESP_LOGE(LED_LOG, "ERROR: Setting duty for LED without threshold failed: %s.", esp_err_to_name(result));
+    result = ledc_update_duty(LEDC_LOW_SPEED_MODE, LED_CHANNEL_25);
+    if (result != ESP_OK){
+        ESP_LOGE(LED_LOG, "ERROR: Updating duty for LED on PIN 25 failed: %s.", esp_err_to_name(result));
         return result;
     }
-    // Update the duty
-    result = ledc_update_duty(LEDC_LOW_SPEED_MODE, LED_CHANNEL);
-    // Check the result
-    if (result != ESP_OK) {
-        ESP_LOGE(LED_LOG, "ERROR: Updating duty for LED without threshold failed: %s.", esp_err_to_name(result));
+
+    result = ledc_update_duty(LEDC_LOW_SPEED_MODE, LED_CHANNEL_26);
+    if (result != ESP_OK){
+        ESP_LOGE(LED_LOG, "ERROR: Updating duty for LED on PIN 26 failed: %s.", esp_err_to_name(result));
         return result;
     }
 
     return result;
 }
+ 
 
 
- esp_err_t setBrightnessWithThreshold(uint32_t brightness){
-    
-    // Variable for storing result of setting duty and updating duty on LED
+
+esp_err_t setBrightness(float luxValue){   
+
+    // Result of the function
     esp_err_t result = ESP_OK;
 
-    // Hystersis is in the off state
-    if (!hysteresis) {
-        // If brightness is lower than minimum threshold, set hysteresis to on state
-        if ((float)brightness <= MIN_THRESHOLD) {
-            hysteresis = true;
-        // If brightness is higher than maximum threshold, turn off the led
+    // Calculate the interval between maximum and minimum threshold
+    float interval = (MAX_THRESHOLD - MIN_THRESHOLD);
+
+    // If the interval is too small, turn off the LEDs and reset hysteresis states and counters
+    if (interval <= TOO_SMALL_INTERVAL) {
+        HYSTERESIS_STATE_ABOVE = false;
+        HYSTERESIS_STATE_BELLOW = false;
+        HYSTERESIS_COUNTER_ABOVE = 0;
+        HYSTERESIS_COUNTER_BELLOW = 0;
+        return setDuty(LED_PWM_MIN);
+    }
+
+    // Enter to HYSTERESIS BELLOW state 
+    if (luxValue <= MIN_THRESHOLD && !HYSTERESIS_STATE_BELLOW) {
+        HYSTERESIS_STATE_BELLOW = true;
+        HYSTERESIS_COUNTER_BELLOW = 0;
+        HYSTERESIS_STATE_ABOVE = false;
+        HYSTERESIS_COUNTER_ABOVE = 0;
+    }
+
+    // Enter to HYSTERESIS ABOVE state
+    if (luxValue >= MAX_THRESHOLD && !HYSTERESIS_STATE_ABOVE) {
+        HYSTERESIS_STATE_ABOVE = true;
+        HYSTERESIS_COUNTER_ABOVE = 0;
+        HYSTERESIS_STATE_BELLOW = false;
+        HYSTERESIS_COUNTER_BELLOW = 0;
+    }
+
+    // Handle HYSTERESIS ABOVE state
+    if (HYSTERESIS_STATE_ABOVE) {
+        if (luxValue >= MAX_THRESHOLD) {
+            if (HYSTERESIS_COUNTER_ABOVE < HYSTERESIS_SAMPLES) {
+                HYSTERESIS_COUNTER_ABOVE++;
+            }
         } else {
-            result = ledc_set_duty(LEDC_LOW_SPEED_MODE, LED_THRESH_CHANNEL, LED_PWM_MIN);
-            if (result != ESP_OK) {
-                ESP_LOGE(LED_LOG, "ERROR: Setting duty for LED with threshold failed: %s.", esp_err_to_name(result));
-                return result;
-            }
-            
-            result = ledc_update_duty(LEDC_LOW_SPEED_MODE, LED_THRESH_CHANNEL);
-            if (result != ESP_OK) {
-                ESP_LOGE(LED_LOG, "ERROR: Updating duty for LED with threshold failed: %s.", esp_err_to_name(result));
-                return result;
-            }
-            return result;
-        }
-    // Hystersis is in the on state
-    } else {
-        // If brightness is higher than maximum threshold, set hysteresis to off state
-        if ((float)brightness >= MAX_THRESHOLD) {
-            hysteresis = false; 
-            result = ledc_set_duty(LEDC_LOW_SPEED_MODE, LED_THRESH_CHANNEL, LED_PWM_MIN);
-            if (result != ESP_OK) {
-                ESP_LOGE(LED_LOG, "ERROR: Setting duty for LED with threshold failed: %s.", esp_err_to_name(result));
-                return result;
-            }
-            result = ledc_update_duty(LEDC_LOW_SPEED_MODE, LED_THRESH_CHANNEL);
-            if (result != ESP_OK) {
-                ESP_LOGE(LED_LOG, "ERROR: Updating duty for LED with threshold failed: %s.", esp_err_to_name(result));
-                return result;
-            }
-            return result;
+            HYSTERESIS_COUNTER_ABOVE = 0;
+            HYSTERESIS_STATE_ABOVE = false;
         }
     }
 
-    // Calculate threshold interval
-    float thresholdInterval = (MAX_THRESHOLD - MIN_THRESHOLD);
-    // If threshold interval is too small, turn off the LED
-    if (thresholdInterval <= 0.0001f) {
-        result = ledc_set_duty(LEDC_LOW_SPEED_MODE, LED_THRESH_CHANNEL, LED_PWM_MIN);
-        if (result != ESP_OK) {
-            ESP_LOGE(LED_LOG, "ERROR: Setting duty for LED with threshold failed: %s.", esp_err_to_name(result));
-            return result;
+    // Handle HYSTERESIS BELLOW state
+    if (HYSTERESIS_STATE_BELLOW) {
+        if (luxValue <= MIN_THRESHOLD) {
+            if (HYSTERESIS_COUNTER_BELLOW < HYSTERESIS_SAMPLES) {
+                HYSTERESIS_COUNTER_BELLOW++;
+            }
+        } else {
+            HYSTERESIS_COUNTER_BELLOW = 0;
+            HYSTERESIS_STATE_BELLOW = false;
         }
-        result = ledc_update_duty(LEDC_LOW_SPEED_MODE, LED_THRESH_CHANNEL);
-        if (result != ESP_OK) {
-            ESP_LOGE(LED_LOG, "ERROR: Updating duty for LED with threshold failed: %s.", esp_err_to_name(result));
-            return result;
-        }
-
-        return result;
     }
+
+    // Check if in HYSTERESIS ABOVE state and counter reached samples
+    if (HYSTERESIS_STATE_ABOVE && HYSTERESIS_COUNTER_ABOVE >= HYSTERESIS_SAMPLES) {
+        HYSTERESIS_STATE_ABOVE = false;
+        HYSTERESIS_COUNTER_ABOVE = 0;
+        HYSTERESIS_STATE_BELLOW = false;
+        HYSTERESIS_COUNTER_BELLOW = 0;
+        return setDuty(LED_PWM_MIN);
+    }
+
+    // Check if in HYSTERESIS BELLOW state and counter reached samples
+    if (HYSTERESIS_STATE_BELLOW && HYSTERESIS_COUNTER_BELLOW >= HYSTERESIS_SAMPLES) {
+        HYSTERESIS_STATE_BELLOW = false;
+        HYSTERESIS_COUNTER_BELLOW = 0;
+        HYSTERESIS_STATE_ABOVE = false;
+        HYSTERESIS_COUNTER_ABOVE = 0;
+        return setDuty(LED_PWM_MAX);
+    }
+
+    if(HYSTERESIS_STATE_ABOVE || HYSTERESIS_STATE_BELLOW) return ESP_OK;
+
 
     // Normalize brightness value within threshold interval and invert it
-    float normalized = HUNDRED_PERCENTAGE - ((float)brightness - MIN_THRESHOLD) / thresholdInterval;
-
-    // Check normalized value
-    if (normalized > HUNDRED_PERCENTAGE) normalized = HUNDRED_PERCENTAGE;
-    if (normalized < ZERO_PERCENTAGE) normalized = ZERO_PERCENTAGE;
-
+    float normalized = HUNDRED_PERCENTAGE - (luxValue - MIN_THRESHOLD) / interval;
     // Apply gamma correction for human eye
     float gammaCorrected = powf(normalized, GAMMA_REDUCTION);
     // Calculate duty
     uint32_t duty = (uint32_t)(gammaCorrected * LED_PWM_MAX);
 
-    // Set calculated duty for LED
-    result = ledc_set_duty(LEDC_LOW_SPEED_MODE, LED_THRESH_CHANNEL, duty);
-    if (result != ESP_OK) {
-        ESP_LOGE(LED_LOG, "ERROR: Setting duty for LED with threshold failed: %s.", esp_err_to_name(result));
-        return result;
-    }
-    
-    // Update the duty
-    result = ledc_update_duty(LEDC_LOW_SPEED_MODE, LED_THRESH_CHANNEL);
-    if (result != ESP_OK) {
-        ESP_LOGE(LED_LOG, "ERROR: Updating duty for LED with threshold failed: %s.", esp_err_to_name(result));
-        return result;
-    }
+    // Set duty for both LEDS
+    result = setDuty(duty);
 
+    if(result == ESP_OK) ESP_LOGI(LED_LOG, "Set duty to %u for lux value %.2f was successful for both LEDS!", duty,  luxValue);
     return result;
 }
+
+
 
 void setMinThreshold(float minThreshold){
     MIN_THRESHOLD = minThreshold;
@@ -269,6 +248,27 @@ float getMaxThreshold(void){
     return MAX_THRESHOLD;
 }
 
-bool getHysteresisState(void){
-    return hysteresis;
+bool getHysteresisStateAbove(void){
+    return HYSTERESIS_STATE_ABOVE;
 }
+
+void setHysteresisStateAbove(bool state){
+    HYSTERESIS_STATE_ABOVE = state;
+}
+
+bool getHysteresisStateBellow(void){
+    return HYSTERESIS_STATE_BELLOW;
+}
+
+void setHysteresisStateBellow(bool state){
+    HYSTERESIS_STATE_BELLOW = state;
+}
+
+unsigned int getHysteresisSamples(void){
+    return HYSTERESIS_SAMPLES;
+}
+
+void setHysteresisSamples(unsigned int samples){
+    HYSTERESIS_SAMPLES = samples;
+}
+
