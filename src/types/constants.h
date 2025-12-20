@@ -19,27 +19,29 @@
  */
 
 // GPIO pin of LED on the PIN 25
-#define LED_GPIO_PIN_25         GPIO_NUM_25 
+#define LED_GPIO_PIN_25                 GPIO_NUM_25 
 // GPIO pin OF LED ON the PIN 26  
-#define LED_GPIO_PIN_26         GPIO_NUM_26
+#define LED_GPIO_PIN_26                 GPIO_NUM_26
 // LED PWM frequency in Hz
-#define LED_FREQUENCY           5000
+#define LED_FREQUENCY                   5000
 // LED channel for LED on pin 25
-#define LED_CHANNEL_25          LEDC_CHANNEL_0       
+#define LED_CHANNEL_25                  LEDC_CHANNEL_0       
 // LED channel for LED on pin 26
-#define LED_CHANNEL_26          LEDC_CHANNEL_1
+#define LED_CHANNEL_26                  LEDC_CHANNEL_1
 // Size of PWM resolution in bits
-#define LED_PWM_BIT_SIZE        13
+#define LED_PWM_BIT_SIZE                13
 // Maximum PWM value
-#define LED_PWM_MAX             ((1 << LED_PWM_BIT_SIZE) - 1)
+#define LED_PWM_MAX                     ((1 << LED_PWM_BIT_SIZE) - 1)
 // Minimum PWM value
-#define LED_PWM_MIN             0
+#define LED_PWM_MIN                     0
 // Minimum hysteresis debounce samples
-#define HYSTERESIS_COUNT_MIN    4
+#define HYSTERESIS_COUNT_MIN            4
 // Maximum hysteresis debounce samples
 #define DEFAULT_HYSTERESIS_COUNT_MAX    10
 // Small interval threshold
-#define TOO_SMALL_INTERVAL      0.0001f
+#define TOO_SMALL_INTERVAL              0.0001f
+// Default time for next measurement in milliseconds
+#define DEFAULT_TIME_FOR_NEXT_MEASUREMENT   200
 
 /**
  * ============================================================= 
@@ -48,15 +50,17 @@
  */
 
 // Log tag for main module
-#define MAIN_LOG          "MAIN"
+#define MAIN_LOG           "MAIN"
 // Log tag for LED module
-#define LED_LOG           "LED"
+#define LED_LOG            "LED"
 // Log tag for sensor module
-#define SENSOR_LOG        "SENSOR"
-// Log tag for WiFi module
-#define WIFI_LOG          "WIFI"
+#define SENSOR_LOG         "SENSOR"
+// Log tag for Serial module
+#define SERIAL_LOG         "SERIAL"
+// Log tag for MQTT module
+#define MQTT_LOG           "MQTT"
 // Log tag for non-volatile storage module
-#define NONVOLATILE_LOG   "NONVOL"
+#define NONVOLATILE_LOG    "NONVOL"
 
 /**
  * ============================================================= 
@@ -102,7 +106,7 @@
 // Time to wait after setting command in milliseconds
 #define WAIT_TIME_AFTER_COMMAND     10 
 // Time to wait for measurement in milliseconds
-#define WAIT_TIME_FOR_MEASUREMENT   150
+#define WAIT_TIME_FOR_MEASUREMENT   200
 // Time for reading value form sensor in milliseconds
 #define TIME_READING_SENSOR         1000
 // Count of bytes to read from sensor
@@ -117,17 +121,25 @@
 */
 
 // NVS namespace for storing configuration
-#define NVS_NAMESPACE   "IMP_PROJECT"
+#define NVS_NAMESPACE   "imp"
 // NVS key for storing configuration
-#define NVS_KEY         "IMP_PROJECT_CONFIG"
+#define NVS_KEY         "impk"
 
 /**
  * ============================================================= 
- *                   MIAN MODULE CONSTANTS
+ *                      UART CONSTANTS
  * =============================================================
 */
 
-// Default time for next measurement in milliseconds
-#define DEFAULT_TIME_FOR_NEXT_MEASUREMENT   200
+// Size of serial buffer
+#define SERIAL_BUFFER_SIZE      512
+// Serial prompt mark
+#define SERIAL_MARK             "IMP_PROJ> "
+// Serial communication baud rate
+#define SERIAL_BAUD_RATE        115200
+#define SERIAL_UART_NUM         UART_NUM_0
+#define SERIAL_TX_PIN           GPIO_NUM_17
+#define SERIAL_RX_PIN           GPIO_NUM_16
+
 
 #endif // CONSTANTS_H
