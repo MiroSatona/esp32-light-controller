@@ -4,15 +4,18 @@ idf_component_register(
         "led/led.c"
         "sensor/sensor.c"
         "nonvolatile/nonvolatile.c"
+        "serial/serial.c"
     INCLUDE_DIRS
         "."
         "led"
         "sensor"
         "nonvolatile"
+        "serial"
     PRIV_REQUIRES
         esp_driver_gpio
         esp_driver_ledc
         esp_driver_i2c
         driver
-        nvs_flash        
+        nvs_flash
+        esp_driver_uart        
 )
