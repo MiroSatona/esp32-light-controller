@@ -31,6 +31,8 @@ static bool HYSTERESIS_STATE_BELLOW = false;
 static unsigned int HYSTERESIS_COUNTER_ABOVE = 0;
 // Counter for hysteresis above maximum threshold
 static unsigned int HYSTERESIS_COUNTER_BELLOW = 0;
+// Time for next measurement in milliseconds
+static int TIME_FOR_NEXT_MEASUREMENT = DEFAULT_TIME_FOR_NEXT_MEASUREMENT;
 
 esp_err_t ledsInit(void){
 
@@ -272,3 +274,10 @@ void setHysteresisSamples(unsigned int samples){
     HYSTERESIS_SAMPLES = samples;
 }
 
+int getTimeForNextMeasurement(void){
+    return TIME_FOR_NEXT_MEASUREMENT;
+}
+
+void setTimeForNextMeasurement(int timeMs){
+    TIME_FOR_NEXT_MEASUREMENT = timeMs;
+}

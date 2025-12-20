@@ -106,4 +106,18 @@ unsigned int getHysteresisSamples(void);
  */
 void setHysteresisSamples(unsigned int samples);
 
+/**
+ * @name getTimeForNextMeasurement
+ * @brief Function for getting time for next measurement in milliseconds.
+ * @return int The current time for next measurement in milliseconds.
+ */
+int getTimeForNextMeasurement(void);
+
+/**
+ * @name setTimeForNextMeasurement
+ * @brief Function for setting time for next measurement in milliseconds.
+ * @param time The time for next measurement in milliseconds to be set.
+ */
+void setTimeForNextMeasurement(int time);
+
 #endif // LED_H
