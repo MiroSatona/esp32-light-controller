@@ -4,7 +4,7 @@ IDF_PATH ?= $(HOME)/esp/esp-idf
 PROJECT_DIR := $(CURDIR)
 
 ZIP_NAME = .zip
-ZIP_FILES = src CMakeLists.txt Makefile .pdf
+ZIP_FILES = src/ CMakeLists.txt Makefile .pdf
 
 define IDF
 	. $(IDF_PATH)/export.sh >/dev/null && cd $(PROJECT_DIR) && idf.py $(1)
@@ -15,7 +15,8 @@ build:
 
 run:
 	$(call IDF,build)
-	$(call IDF,flash monitor)
+	$(call IDF,flash)
+	$(call IDF,monitor --print-filter "*:E")
 
 clean:
 	$(call IDF,clean)
@@ -25,4 +26,4 @@ clean:
 pack:
 	zip -r $(ZIP_NAME) $(ZIP_FILES)
 
-.PHONY: build run clean pack
+.PHONY: build run clean pack debug
