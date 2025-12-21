@@ -37,6 +37,15 @@ void app_main(void){
     
     // Set log level to WARNING and ERROR
     esp_log_level_set("*", ESP_LOG_WARN);
+
+    esp_log_level_set(MAIN_LOG,        ESP_LOG_WARN);
+    esp_log_level_set(LED_LOG,         ESP_LOG_WARN);
+    esp_log_level_set(SENSOR_LOG,      ESP_LOG_WARN);
+    esp_log_level_set(SERIAL_LOG,      ESP_LOG_WARN);
+    esp_log_level_set(WIFI_LOG,        ESP_LOG_WARN);
+    esp_log_level_set(MQTT_LOG,        ESP_LOG_WARN);
+    esp_log_level_set(NONVOLATILE_LOG, ESP_LOG_WARN);
+
     // Variable to store functions results
     esp_err_t result = ESP_OK;
 
@@ -70,6 +79,9 @@ void app_main(void){
         IS_WIFI_CONNECTED = true;
     }
 
+    // Delay to ensure WIFI is connected
+    vTaskDelay(pdMS_TO_TICKS(WIFI_MQTT_CONNECTED_DELAY_MS));
+
     // Initialize MQTT
     if (IS_WIFI_CONNECTED) {
         result = mqttInit();
@@ -80,6 +92,9 @@ void app_main(void){
             IS_MQTT_CONNECTED = true;
         }
     }
+
+    // Delay to ensure MQTT is connected
+    vTaskDelay(pdMS_TO_TICKS(WIFI_MQTT_CONNECTED_DELAY_MS));
 
     // Initialize serial communication
     result = serialInit();
