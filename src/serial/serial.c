@@ -1,3 +1,9 @@
+/**
+ * @file serial.c
+ * @author Martin Zůbek, 
+ * @brief Source file for serial communication by UART.
+ * @date 2025-12-17
+ */
 #include "serial.h"
 #include <stdio.h>
 #include <string.h>
@@ -11,24 +17,24 @@
 #include "led/led.h"
 #include "nonvolatile/nonvolatile.h"
 #include "types/constants.h"
+#include "driver/gpio.h"
 
+
+// Current user configuration
 static USER_CONFIG_T currentConfiguration = {0};
 
-static void serialPrint(const char *fmt, ...) {
-    char out[512];
-    va_list args;
-    va_start(args, fmt);
-    int n = vsnprintf(out, sizeof(out), fmt, args);
-    va_end(args);
-    if (n < 0) return;
-    if (n > (int)sizeof(out)) n = (int)sizeof(out);
-    uart_write_bytes(SERIAL_UART_NUM, out, n);
+void serialPrint(const char *text) {
+    uart_write_bytes(UART_NUM_0, text, strlen(text));
 }
 
+
 esp_err_t serialInit(void) {
+
+    // UART configuration structure
     uart_config_t uartConfiguration;
     memset(&uartConfiguration, 0, sizeof(uart_config_t));
 
+    // Configure UART parameters
     uartConfiguration.baud_rate  = SERIAL_BAUD_RATE;
     uartConfiguration.data_bits  = UART_DATA_8_BITS;
     uartConfiguration.parity     = UART_PARITY_DISABLE;
@@ -36,36 +42,18 @@ esp_err_t serialInit(void) {
     uartConfiguration.flow_ctrl  = UART_HW_FLOWCTRL_DISABLE;
     uartConfiguration.source_clk = UART_SCLK_DEFAULT;
 
-    esp_err_t result;
+    // Result of the initialization
+    esp_err_t result = ESP_OK;
 
-    result = uart_param_config(SERIAL_UART_NUM, &uartConfiguration);
+    // Configure UART parameters
+    result = uart_param_config(UART_NUM_0, &uartConfiguration);
     if (result != ESP_OK) {
         ESP_LOGE(SERIAL_LOG, "ERROR: UART configuration failed:%s.", esp_err_to_name(result));
         return result;
     }
 
-    if (SERIAL_UART_NUM != UART_NUM_0) {
-        result = uart_set_pin(
-            SERIAL_UART_NUM,
-            SERIAL_TX_PIN,
-            SERIAL_RX_PIN,
-            UART_PIN_NO_CHANGE,
-            UART_PIN_NO_CHANGE
-        );
-        if (result != ESP_OK) {
-            ESP_LOGE(SERIAL_LOG, "ERROR: UART set pin failed:%s.", esp_err_to_name(result));
-            return result;
-        }
-    }
-
-    result = uart_driver_install(
-        SERIAL_UART_NUM,
-        SERIAL_BUFFER_SIZE * 2,
-        0,
-        0,
-        NULL,
-        0
-    );
+    // Install UART driver
+    result = uart_driver_install(UART_NUM_0, SERIAL_BUFFER_SIZE * 2, 0, 0, NULL, 0);
     if (result != ESP_OK) {
         ESP_LOGE(SERIAL_LOG, "ERROR: UART driver installation failed:%s.", esp_err_to_name(result));
         return result;
@@ -88,7 +76,10 @@ void printHelp(void) {
 }
 
 void printShow(void) {
-    serialPrint(
+    char msg[256];
+    snprintf(
+        msg,
+        sizeof(msg),
         "%s Current Configuration:\r\n"
         "  Minimum Threshold (tmin): %.2f\r\n"
         "  Maximum Threshold (tmax): %.2f\r\n"
@@ -100,213 +91,265 @@ void printShow(void) {
         currentConfiguration.hysteresisCount,
         (unsigned long)currentConfiguration.timeForNextMeasurement
     );
+    serialPrint(msg);
 }
 
 bool isValidValue(VALUE_TYPE_T type, float fValue, int iValue) {
+    // Validate based on type
+    char printBuffer[BUFFER_SIZE];
     switch (type) {
+        // Minimum threshold
         case VALUE_TMIN:
             if (fValue >= currentConfiguration.maxThreshold) {
-                serialPrint(
-                    "%s ERROR: tmin must be lower than tmax (tmax=%.2f)\r\n",
+                snprintf(
+                    printBuffer,
+                    sizeof(printBuffer),
+                    "%s ERROR: Tmin must be lower than tmax (tmax=%.2f)\r\n",
                     SERIAL_MARK,
                     currentConfiguration.maxThreshold
                 );
+                serialPrint(printBuffer);
                 return false;
             }
             return true;
 
+        // Maximum threshold
         case VALUE_TMAX:
             if (fValue <= currentConfiguration.minThreshold) {
-                serialPrint(
-                    "%s ERROR: tmax must be higher than tmin (tmin=%.2f)\r\n",
+                snprintf(
+                    printBuffer,
+                    sizeof(printBuffer),
+                    "%s ERROR: Tmax must be higher than tmin (tmin=%.2f)\r\n",
                     SERIAL_MARK,
                     currentConfiguration.minThreshold
                 );
+                serialPrint(printBuffer);
                 return false;
             }
             return true;
 
+        // Hysteresis debounce
         case VALUE_DEBOUNCE:
             if (iValue < HYSTERESIS_COUNT_MIN) {
-                serialPrint(
-                    "%s ERROR: debounce must be >= %d\r\n",
+                snprintf(
+                    printBuffer,
+                    sizeof(printBuffer),
+                    "%s ERROR: Debounce must be >= %d\r\n",
                     SERIAL_MARK,
                     HYSTERESIS_COUNT_MIN
                 );
+                serialPrint(printBuffer);
                 return false;
             }
             return true;
 
+        // Measurement interval
         case VALUE_TIME:
             if (iValue < DEFAULT_TIME_FOR_NEXT_MEASUREMENT) {
-                serialPrint(
-                    "%s ERROR: measurement interval must be >= %d ms\r\n",
+                snprintf(
+                    printBuffer,
+                    sizeof(printBuffer),
+                    "%s ERROR: Measurement interval must be >= %d ms\r\n",
                     SERIAL_MARK,
                     DEFAULT_TIME_FOR_NEXT_MEASUREMENT
                 );
+                serialPrint(printBuffer);
                 return false;
             }
             return true;
 
+        // Unknown type
         default:
-            serialPrint("%s ERROR: Unknown value type\r\n", SERIAL_MARK);
+            snprintf(printBuffer, sizeof(printBuffer), "%s ERROR: Unknown value type\r\n", SERIAL_MARK);
+            serialPrint(printBuffer);
             return false;
     }
 }
 
 void serialTask(void) {
-    char buffer[SERIAL_BUFFER_SIZE];
 
+    // Buffer for storing incoming data
+    char buffer[BUFFER_SIZE];
+
+    // Load current configuration from non-volatile storage
     esp_err_t result = getNonvolatileData(&currentConfiguration);
     if (result != ESP_OK) return;
 
+    // Store current configuration to LED module
     setMinThreshold(currentConfiguration.minThreshold);
     setMaxThreshold(currentConfiguration.maxThreshold);
     setHysteresisSamples(currentConfiguration.hysteresisCount);
     setTimeForNextMeasurement(currentConfiguration.timeForNextMeasurement);
 
-    serialPrint("%s", SERIAL_MARK);
-
-    int lineLen = 0;
+    // Print prompt mark
+    serialPrint(SERIAL_MARK);
+    // Current line length
+    int lineLength = 0;
+    // Clear buffer
     memset(buffer, 0, sizeof(buffer));
 
     while (true) {
-        uint8_t ch = 0;
-        int n = uart_read_bytes(SERIAL_UART_NUM, &ch, 1, pdMS_TO_TICKS(100));
-        if (n <= 0) {
-            vTaskDelay(pdMS_TO_TICKS(10));
+        // Readed character
+        uint8_t character = 0;
+        // Count of readed bytes
+        int bytesRead = uart_read_bytes(UART_NUM_0, &character, 1, pdMS_TO_TICKS(READ_TIMEOUT_MS));
+        // If no bytes were read, use delay and continue
+        if (bytesRead <= 0) {
+            vTaskDelay(pdMS_TO_TICKS(RESTART_READ_DELAY_MS));
             continue;
         }
 
-        if (ch == '\r' || ch == '\n') {
-            uart_write_bytes(SERIAL_UART_NUM, "\r\n", 2);
-            buffer[lineLen] = '\0';
-
-            if (lineLen == 0) {
-                serialPrint("%s", SERIAL_MARK);
+        // For enter press
+        if (character == '\r' || character == '\n') {
+            // Go to new line
+            uart_write_bytes(UART_NUM_0, "\r\n", 2);
+            buffer[lineLength] = '\0';
+            // Empty line, just go to next line
+            if (lineLength == 0) {
+                serialPrint(SERIAL_MARK);
                 continue;
             }
 
+            // For storing float value
             float floatValue = 0.0f;
+            // For storing integer value
             int integerValue = 0;
-            bool printPromptAgain = false;
+            // Flag to print prompt mark
+            bool printMark = false;
 
+            // Process treshold minimum command
             if (sscanf(buffer, "set tmin %f", &floatValue) == 1) {
                 if (isValidValue(VALUE_TMIN, floatValue, 0)) {
                     currentConfiguration.minThreshold = floatValue;
                     setMinThreshold(floatValue);
-                    serialPrint(
+                
+                    char printBuffer[BUFFER_SIZE];
+                    snprintf(
+                        printBuffer,
+                        sizeof(printBuffer),
                         "%s Minimum threshold was set to %.2f successfully.\r\n",
                         SERIAL_MARK,
                         floatValue
                     );
+                    serialPrint(printBuffer);
+                
                     nonvolatileSave(&currentConfiguration);
-                } else {
-                    serialPrint(
-                        "%s WARNING: Invalid minimum threshold value.\r\n",
-                        SERIAL_MARK
-                    );
-                }
-                printPromptAgain = true;
+                } 
+                printMark = true;
             }
 
+            // Process treshold maximum command
             else if (sscanf(buffer, "set tmax %f", &floatValue) == 1) {
                 if (isValidValue(VALUE_TMAX, floatValue, 0)) {
                     currentConfiguration.maxThreshold = floatValue;
                     setMaxThreshold(floatValue);
-                    serialPrint(
+                    
+                    char printBuffer[BUFFER_SIZE];
+                    snprintf(
+                        printBuffer,
+                        sizeof(printBuffer),
                         "%s Maximum threshold was set to %.2f successfully.\r\n",
                         SERIAL_MARK,
                         floatValue
                     );
+                    serialPrint(printBuffer);
+
                     nonvolatileSave(&currentConfiguration);
-                } else {
-                    serialPrint(
-                        "%s WARNING: Invalid maximum threshold value.\r\n",
-                        SERIAL_MARK
-                    );
-                }
-                printPromptAgain = true;
+                } 
+                printMark = true;
             }
 
+            // Process debounce command
             else if (sscanf(buffer, "set debounce %d", &integerValue) == 1) {
                 if (isValidValue(VALUE_DEBOUNCE, 0.0f, integerValue)) {
                     currentConfiguration.hysteresisCount = (unsigned int)integerValue;
                     setHysteresisSamples((unsigned int)integerValue);
-                    serialPrint(
+                    char printBuffer[BUFFER_SIZE];
+                    snprintf(
+                        printBuffer,
+                        sizeof(printBuffer),
                         "%s Debounce set to %d successfully.\r\n",
                         SERIAL_MARK,
                         integerValue
                     );
+                    serialPrint(printBuffer);
                     nonvolatileSave(&currentConfiguration);
-                } else {
-                    serialPrint(
-                        "%s WARNING: Invalid debounce value.\r\n",
-                        SERIAL_MARK
-                    );
-                }
-                printPromptAgain = true;
+                } 
+                printMark = true;
             }
 
+            // Process measurement interval command
             else if (sscanf(buffer, "set time %d", &integerValue) == 1) {
                 if (isValidValue(VALUE_TIME, 0.0f, integerValue)) {
                     currentConfiguration.timeForNextMeasurement = integerValue;
                     setTimeForNextMeasurement(integerValue);
-                    serialPrint(
+                    
+                    char printBuffer[BUFFER_SIZE];
+                    snprintf(
+                        printBuffer,
+                        sizeof(printBuffer),
                         "%s Measurement interval set to %d ms successfully.\r\n",
                         SERIAL_MARK,
                         integerValue
                     );
+                    serialPrint(printBuffer);
+                    
                     nonvolatileSave(&currentConfiguration);
-                } else {
-                    serialPrint(
-                        "%s WARNING: Invalid measurement interval.\r\n",
-                        SERIAL_MARK
-                    );
-                }
-                printPromptAgain = true;
+                } 
+                printMark = true;
             }
 
+            // Process show command
             else if (strncmp(buffer, "show", 4) == 0) {
                 printShow();
-                printPromptAgain = true;
+                printMark = true;
             }
 
+            // Process help command
             else if (strncmp(buffer, "help", 4) == 0) {
                 printHelp();
-                printPromptAgain = true;
+                printMark = true;
             }
-
+            
+            // Unknown command
             else {
-                serialPrint(
+                char printBuffer[96];
+                snprintf(
+                    printBuffer,
+                    sizeof(printBuffer),
                     "%s ERROR: Unknown command. Use 'help'.\r\n",
                     SERIAL_MARK
                 );
-                printPromptAgain = true;
+                serialPrint(printBuffer);
+                printMark = true;
             }
 
-            lineLen = 0;
+            // Reset line length and buffer
+            lineLength = 0;
             memset(buffer, 0, sizeof(buffer));
 
-            if (printPromptAgain) {
-                serialPrint("%s", SERIAL_MARK);
+            // Print prompt mark if needed
+            if (printMark) {
+                serialPrint(SERIAL_MARK);
             }
 
             continue;
         }
 
-        if (ch == 0x7F || ch == 0x08) {
-            if (lineLen > 0) {
-                lineLen--;
-                buffer[lineLen] = '\0';
-                uart_write_bytes(SERIAL_UART_NUM, "\b \b", 3);
+        // Handle backspace or delete
+        if (character == ASCII_DELETE || character == ASCII_BACKSPACE) {
+            if (lineLength > 0) {
+                lineLength--;
+                buffer[lineLength] = '\0';
+                uart_write_bytes(UART_NUM_0, "\b \b", 3);
             }
             continue;
         }
 
-        if (lineLen < (SERIAL_BUFFER_SIZE - 1)) {
-            buffer[lineLen++] = (char)ch;
-            uart_write_bytes(SERIAL_UART_NUM, (const char *)&ch, 1);
+        // Store character in buffer if there is space
+        if (lineLength < (BUFFER_SIZE - 1)) {
+            buffer[lineLength++] = (char)character;
+            uart_write_bytes(UART_NUM_0, (const char *)&character, 1);
         }
     }
 }
