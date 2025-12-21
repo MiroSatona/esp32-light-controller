@@ -30,6 +30,14 @@ run:
 	$(call IDF,flash)
 	$(call IDF,monitor --print-filter "*:E")
 
+# make web - starts the web docker container
+web:
+	cd web && docker compose up -d
+
+# make web_down - stops the web docker container
+web_down:
+	cd web && docker compose down -v
+
 # make clean - clean up builded files
 clean:
 	$(call IDF,clean)
@@ -43,4 +51,4 @@ pack:
 	zip -r $(ZIP_NAME) $(ZIP_FILES)
 
 
-.PHONY: build run clean pack debug
+.PHONY: build run clean pack debug web web_down
