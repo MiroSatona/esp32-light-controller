@@ -1,0 +1,30 @@
+# File: docker-compose.yml
+# Author: Martin Zůbek, 
+# Date: 2025-12-17
+# Description: Docker Compose configuration for Mosquitto MQTT broker and web server
+
+services:
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: mosquitto
+    ports:
+      - "1883:1883"   
+      - "9001:9001"   
+    volumes:
+      - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - mosquitto_data:/mosquitto/data
+      - mosquitto_log:/mosquitto/log
+    restart: unless-stopped
+
+  web:
+    image: nginx:alpine
+    container_name: imp_web
+    ports:
+      - "8080:80"     
+    volumes:
+      - ./web/index.html:/usr/share/nginx/html/index.html:ro
+    restart: unless-stopped
+
+volumes:
+  mosquitto_data:
+  mosquitto_log:
