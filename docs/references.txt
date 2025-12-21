@@ -1,0 +1,9 @@
+sensor: https://www.laskakit.cz/snimac-intenzity-osvetleni-bh1750/
+lux_max: https://cs.wikipedia.org/wiki/Lux_(jednotka)
+	 https://www.performanceinlighting.com/ww/en/en-12464-1
+	 https://www.engineeringtoolbox.com/light-level-rooms-d_708.html
+gamma_reduction: https://electricfiredesign.com/2022/11/14/gamma-correction-for-led-lighting/
+hysterses: https://cs.wikipedia.org/wiki/Hystereze
+code_issues: https://docs.espressif.com/projects/esp-idf/en/stable/esp32/api-reference/peripherals/i2c.html
+https://randomnerdtutorials.com/esp32-bh1750-ambient-light-sensor
+	     
