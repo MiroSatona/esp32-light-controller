@@ -28,7 +28,7 @@ build:
 run:
 	$(call IDF,build)
 	$(call IDF,flash)
-	$(call IDF,monitor --print-filter "*:E")
+	$(call IDF,monitor)
 
 # make web - starts the web docker container
 web:
