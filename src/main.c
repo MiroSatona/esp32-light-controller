@@ -1,87 +1,127 @@
-#include <string.h>
+/**
+ * @file main.c
+ * @author Martin Zůbek, 
+ * @brief Main application file for the initilization and main loop.
+ * @date 2025-12-17
+ */
 
+#include <stdio.h>
+#include <stdbool.h>
+#include <string.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-
 #include "esp_err.h"
 #include "esp_log.h"
-
 #include "types/constants.h"
 #include "nonvolatile/nonvolatile.h"
 #include "serial/serial.h"
 #include "sensor/sensor.h"
 #include "led/led.h"
+#include "mqtt_wifi/wifi.h"
+#include "mqtt_wifi/mqtt.h"
 
+// Flag to indicate if is the system connected to WIFI
+static bool IS_WIFI_CONNECTED = false;
+// Flag to indicate if is the system connected to MQTT broker
+static bool IS_MQTT_CONNECTED = false;
+// Flag to indicate if serial communication is initialized
+static bool IS_SERIAL_INITIALIZED = false;
+
+
+/**
+ * @name app_main
+ * @brief Function initializes all modules and starts the main loop.
+ * @return void 
+ */
 void app_main(void){
-       
+    
+    // Set log level to WARNING and ERROR
     esp_log_level_set("*", ESP_LOG_WARN);
+    // Variable to store functions results
     esp_err_t result = ESP_OK;
 
-    // Initialize non-volatile storage (if it fails, continue with defaults)
+    // Initialize non-volatile storage
     result = nonvolatileInit();
     if (result != ESP_OK) {
-        ESP_LOGW("MAIN", "WAR: Non-volatile storage init failed: %s. Using defaults.", esp_err_to_name(result));
+        ESP_LOGE(MAIN_LOG, "ERROR: Non-volatile storage initialization failed: %s. Program will end.", esp_err_to_name(result));
+        return;
     }
 
-    // Initialize serial communication (CLI is optional)
-    result = serialInit();
-    if (result == ESP_OK) {
-        // Run CLI in separate task (serialTask() is expected to loop forever)
-        xTaskCreate((TaskFunction_t)serialTask, "serial_task", 4096, NULL, 5, NULL);
-    } else {
-        ESP_LOGW("MAIN", "WAR: Serial init failed: %s. Running without CLI.", esp_err_to_name(result));
-    }
-
-    // Initialize sensor (mandatory)
+    // Initialize sensor
     result = sensorInit();
     if (result != ESP_OK) {
-        ESP_LOGE("MAIN", "ERROR: Sensor initialization failed: %s.", esp_err_to_name(result));
+        ESP_LOGE(MAIN_LOG, "ERROR: Sensor initialization failed: %s. Program will end.", esp_err_to_name(result));
         return;
     }
 
-    // Initialize LEDs (mandatory)
+    // Initialize LEDs
     result = ledsInit();
     if (result != ESP_OK) {
-        ESP_LOGE("MAIN", "ERROR: LED initialization failed: %s.", esp_err_to_name(result));
+        ESP_LOGE(MAIN_LOG, "ERROR: LED initialization failed: %s. Program will end.", esp_err_to_name(result));
         return;
     }
 
-    // Current user configuration
-    USER_CONFIG_T currentConfiguration;
-    memset(&currentConfiguration, 0, sizeof(USER_CONFIG_T));
-
-    // Load current configuration from non-volatile storage
-    result = getNonvolatileData(&currentConfiguration);
+    // Initialize WIFI
+    result = wifiInit();
     if (result != ESP_OK) {
-        ESP_LOGW("MAIN", "WAR: Loading configuration from NVS failed: %s. Using defaults.", esp_err_to_name(result));
-
-        // Defaults (adjust names to your constants if needed)
-        currentConfiguration.minThreshold = DEFAULT_LUX_MIN;
-        currentConfiguration.maxThreshold = DEFAULT_LUX_MAX;
-        currentConfiguration.hysteresisCount = HYSTERESIS_COUNT_MIN;
-        currentConfiguration.timeForNextMeasurement = DEFAULT_TIME_FOR_NEXT_MEASUREMENT;
+        ESP_LOGW(MAIN_LOG, "WAR: WIFI initialization failed: %s. Program will not send data to MQTT broker.", esp_err_to_name(result));
+        IS_WIFI_CONNECTED = false;
+    } else {
+        IS_WIFI_CONNECTED = true;
     }
 
-    // Apply current configuration
-    setMinThreshold(currentConfiguration.minThreshold);
-    setMaxThreshold(currentConfiguration.maxThreshold);
-    setHysteresisSamples(currentConfiguration.hysteresisCount);
-    setTimeForNextMeasurement(currentConfiguration.timeForNextMeasurement);
-
-    while (true) {
-        float lux = 0.0f;
-
-        // Read sensor + update LED
-        if (readLuxValue(&lux) == ESP_OK) {
-            setBrightness(lux);
+    // Initialize MQTT
+    if (IS_WIFI_CONNECTED) {
+        result = mqttInit();
+        if (result != ESP_OK) {
+            ESP_LOGW(MAIN_LOG, "WAR: MQTT initialization failed: %s. Program will not send data to MQTT broker.", esp_err_to_name(result));
+            IS_MQTT_CONNECTED = false;
         } else {
-            ESP_LOGW("MAIN", "WAR: readLuxValue failed.");
+            IS_MQTT_CONNECTED = true;
+        }
+    }
+
+    // Initialize serial communication
+    result = serialInit();
+    if (result != ESP_OK) {
+        ESP_LOGW(MAIN_LOG, "WAR: Serial communication initialization failed: %s. Program will run without serial communication.", esp_err_to_name(result));
+        IS_SERIAL_INITIALIZED = false;
+    } else {
+        IS_SERIAL_INITIALIZED = true;
+        // Start serial task
+        xTaskCreate((TaskFunction_t)serialTask, "serial_task", 4096, NULL, 5, NULL);
+    }
+
+    // Reset result variable
+    result = ESP_OK;
+
+    // Main loop
+    while (true) {
+
+        // Variable to store measured lux value
+        float measuredLux = 0.0f;
+
+        // Read lux value from sensor
+        result = readLuxValue(&measuredLux);
+        if (result != ESP_OK) {
+            ESP_LOGW(MAIN_LOG, "WAR: Reading lux value failed: %s.", esp_err_to_name(result));
+        } else {
+            // Set LED brightness based on measured lux
+            setBrightness(measuredLux);
         }
 
-        // Delay according to config (fallback if broken)
-        int periodMs = getTimeForNextMeasurement();
-        if (periodMs <= 0) periodMs = DEFAULT_TIME_FOR_NEXT_MEASUREMENT;
+        if(IS_WIFI_CONNECTED && IS_MQTT_CONNECTED && result == ESP_OK && mqttIsConnected()) {
+            // Send measured lux value via MQTT
+            result = mqttSend(measuredLux);
+            if (result != ESP_OK) {
+                ESP_LOGW(MAIN_LOG, "WAR: Sending lux value via MQTT failed: %s.", esp_err_to_name(result));
+            }
+        }
 
-        vTaskDelay(pdMS_TO_TICKS(periodMs));
+        // Delay for the configured time before next measurement
+        int periodForNextMeasurement = getTimeForNextMeasurement();
+        if (periodForNextMeasurement <= 0) periodForNextMeasurement = DEFAULT_TIME_FOR_NEXT_MEASUREMENT;
+        vTaskDelay(pdMS_TO_TICKS(periodForNextMeasurement));
+
     }
 }
