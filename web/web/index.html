@@ -1,0 +1,148 @@
+<!--
+========================================================================================
+- File: index.html
+- Author: Martin Zůbek, 
+- Date: 2025-12-17
+- Description: Web interface for show measured light level and client configuration.
+========================================================================================
+-->
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>IMP – Light Level Monitor</title>
+  <!-- MQTT.js library from CDN -->
+  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+  <!-- Styles for the web -->
+  <style>
+    body { font-family: system-ui, Arial, sans-serif; background:#0f1115; color:#e7e7e7; margin:0; }
+    .wrap { max-width: 900px; margin: 0 auto; padding: 24px; }
+    .card { background:#151a22; border:1px solid #222a37; border-radius:14px; padding:18px; margin-bottom:16px; }
+    .big { font-size: 64px; font-weight: 800; line-height: 1; }
+    .muted { color:#aab3c2; }
+    .kv { display:grid; grid-template-columns: 1fr auto; gap:8px 16px; margin-top:10px; }
+    .pill { display:inline-block; padding:4px 10px; border-radius:999px; font-size:12px; border:1px solid #222a37; background:#0f1115; }
+    .ok { color:#79d57b; }
+    .warn { color:#ffd166; }
+  </style>
+</head>
+<body>
+  <!-- Main content wrapper -->
+  <div class="wrap">
+    <!-- Title of the page -->
+    <h1>IMP – Current measured light level</h1>
+    <!-- Card for current measured light level in lux -->
+    <div class="card">
+      <div class="muted" style="font-weight:700;">Current value</div>
+      <div class="big">
+        <span id="measuredLuxValue">---</span>
+        <span class="muted" style="font-size:22px;">lux</span>
+      </div>
+      <div class="muted" style="margin-top:8px;">
+        <span id="measuredLuxStatusBadge" class="pill">---</span>
+      </div>
+      <div class="muted" style="margin-top:8px;">Last update: <span id="lastUpdateTimestamp">---</span></div>
+    </div>
+    <!-- Card for user configuration -->
+    <div class="card">
+      <div class="muted" style="font-weight:700;">User configuration</div>
+      <div class="kv">
+        <div class="muted">Interval</div><div><span id="configIntervalMsValue">---</span> ms</div>
+        <div class="muted">Min LUX</div><div><span id="configMinLuxValue">---</span> lux</div>
+        <div class="muted">Max LUX</div><div><span id="configMaxLuxValue">---</span> lux</div>
+        <div class="muted">Hysteresis debounce</div><div><span id="configHysteresisSamplesValue">---</span> samples</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // MQTT topic to subscribe to
+    const TOPIC = "imp/sensor";
+
+    // Get references to HTML elements from frist card (measured lux)
+    const measuredLuxValueElement = document.getElementById("measuredLuxValue");
+    const measuredLuxStatusBadgeElement = document.getElementById("measuredLuxStatusBadge");
+    const lastUpdateTimestampElement = document.getElementById("lastUpdateTimestamp");
+
+    // Get references to HTML elements from second card (user configuration)
+    const configIntervalMsValueElement = document.getElementById("configIntervalMsValue");
+    const configMinLuxValueElement = document.getElementById("configMinLuxValue");
+    const configMaxLuxValueElement = document.getElementById("configMaxLuxValue");
+    const configHysteresisSamplesValueElement = document.getElementById("configHysteresisSamplesValue");
+
+    // Stuct to hold current configuration
+    let configuration = {
+      interval_ms: null,
+      min_lux: null,
+      max_lux: null,
+      hyst_samples: null
+    };
+
+    /**
+     * Funtcion name: updateConfigurationUI
+     * Description: Function to update the configuration values in the second card (user configuration). Missing values are shown as "---".
+     * @returns {void}
+     */
+    function updateConfigurationUI() {
+      configIntervalMsValueElement.textContent = configuration.interval_ms ?? "---";
+      configMinLuxValueElement.textContent = configuration.min_lux ?? "---";
+      configMaxLuxValueElement.textContent = configuration.max_lux ?? "---";
+      configHysteresisSamplesValueElement.textContent = configuration.hyst_samples ?? "---";
+    }
+
+    /**
+     * Funtcion name: getStatusBadgeForLux
+     * Description: Function to get status badge text and CSS class based on measured lux value.
+     * @param {number} measuredLux - The measured lux value.
+     * @returns {object} An object containing the badge text and CSS class.
+     */
+    function getStatusBadgeForLux(measuredLux) {
+      if (typeof configuration.min_lux !== "number" || typeof configuration.max_lux !== "number") {
+        return { text: "---", cssClass: "" };
+      }
+
+      if (measuredLux < configuration.min_lux) return { text: "BELOW MIN", cssClass: "warn" };
+      if (measuredLux > configuration.max_lux) return { text: "ABOVE MAX", cssClass: "warn" };
+      return { text: "OK", cssClass: "ok" };
+    }
+
+    // Update configuration UI with initial values
+    updateConfigurationUI();
+
+    // Connect to MQTT broker
+    const mqttClient = mqtt.connect("ws://localhost:9001");
+
+    mqttClient.on("connect", () => {
+      mqttClient.subscribe(TOPIC);
+    });
+
+    // Handle incoming MQTT messages
+    mqttClient.on("message", (_, message) => {
+      try {
+        // Get data from JSON message
+        const data = JSON.parse(message.toString());
+        if (typeof data.interval_ms === "number") configuration.interval_ms = data.interval_ms;
+        if (typeof data.min_lux === "number") configuration.min_lux = data.min_lux;
+        if (typeof data.max_lux === "number") configuration.max_lux = data.max_lux;
+        if (typeof data.hyst_samples === "number") configuration.hyst_samples = data.hyst_samples;
+
+        // Update configuration UI
+        updateConfigurationUI();
+
+        // Update measured lux value and status badge
+        const measuredLux = Number(data.lux_mes);
+        if (!Number.isNaN(measuredLux)) {
+          measuredLuxValueElement.textContent = measuredLux;
+          lastUpdateTimestampElement.textContent = new Date().toLocaleString();
+
+          const badge = getStatusBadgeForLux(measuredLux);
+          measuredLuxStatusBadgeElement.textContent = badge.text;
+          measuredLuxStatusBadgeElement.className = "pill " + badge.cssClass;
+        }
+      } catch {}
+    });
+  </script>
+</body>
+</html>
