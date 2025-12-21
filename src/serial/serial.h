@@ -31,7 +31,7 @@ typedef enum {
 /**
  * @name serialInit
  * @brief Function to initialize serial communication.
- * @return esp_err_t - ESP_OK on success, otherwise some 
+ * @return esp_err_t - ESP_OK on success, otherwise some error of esp_err_t.
  */
 esp_err_t serialInit(void);
 
