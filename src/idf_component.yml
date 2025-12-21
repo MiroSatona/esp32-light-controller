@@ -1,2 +1,7 @@
+# File: idf_component.yml
+# Author: Martin Zůbek, 
+# Date: 2025-12-17
+# Description: IDF component configuration file for MQTT dependency
+
 dependencies:
   espressif/mqtt: "*"
