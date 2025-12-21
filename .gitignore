@@ -1,7 +1,6 @@
 sdkconfig
 build/
 .vscode/
-docs/
 *.zip
 dependencies.lock
 managed_components/
