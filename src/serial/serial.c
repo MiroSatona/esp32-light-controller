@@ -23,7 +23,7 @@
 // Current user configuration
 static USER_CONFIG_T currentConfiguration = {0};
 
-void serialPrint(const char *text) {
+void serialPrint(char *text) {
     uart_write_bytes(UART_NUM_0, text, strlen(text));
 }
 
