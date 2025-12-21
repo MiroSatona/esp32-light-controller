@@ -57,6 +57,8 @@
 #define SENSOR_LOG         "SENSOR"
 // Log tag for Serial module
 #define SERIAL_LOG         "SERIAL"
+// Log tag for WIFI module
+#define WIFI_LOG           "WIFI"
 // Log tag for MQTT module
 #define MQTT_LOG           "MQTT"
 // Log tag for non-volatile storage module
@@ -154,17 +156,31 @@
  * =============================================================
 */
 
+/**
+ * ============================================================
+ * 
+ *   WARNING: THIS NEEDS BE SET INDEPENDENT ON USER NETWORK!!!
+ * 
+ */
+
 // WiFi SSID
 #define WIFI_SSID                       "imp-wifi"
 // WiFi Password
 #define WIFI_PASSWORD                   "imp-wifi"
+// MQTT broker URI
+#define MQTT_URI                        "mqtt://10.134.6.42:1883"
+
+/**
+ * ============================================================
+ */
+
 // Timeout for waiting for Wi-Fi event bits
 #define WIFI_EVENT_BITS_TIMEOUT_MS      20000
-// MQTT broker URI
-#define MQTT_URI                       "mqtt://10.105.233.42:1883"
 // MQTT topic
 #define MQTT_TOPIC_LUX                 "imp/sensor"
 // Size of JSON payload for MQTT messages
 #define JSON_PAYLOAD_SIZE               256
+// Delay after WIFI and MQTT connection in milliseconds
+#define WIFI_MQTT_CONNECTED_DELAY_MS    200
 
 #endif // CONSTANTS_H
