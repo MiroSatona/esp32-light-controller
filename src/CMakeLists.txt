@@ -1,3 +1,8 @@
+# File: CMakeLists.txt
+# Author: Martin Zůbek, 
+# Date: 2025-12-17
+# Description: CMake configuration file for ESP-IDF project
+
 idf_component_register(
     SRCS
         "main.c"
