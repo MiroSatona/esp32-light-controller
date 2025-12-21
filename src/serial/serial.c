@@ -181,6 +181,8 @@ void serialTask(void) {
     setHysteresisSamples(currentConfiguration.hysteresisCount);
     setTimeForNextMeasurement(currentConfiguration.timeForNextMeasurement);
 
+    // Get the following serial mark to the new line
+    serialPrint("\r\n");
     // Print prompt mark
     serialPrint(SERIAL_MARK);
     // Current line length
