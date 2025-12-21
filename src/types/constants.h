@@ -19,27 +19,27 @@
  */
 
 // GPIO pin of LED on the PIN 25
-#define LED_GPIO_PIN_25                 GPIO_NUM_25 
+#define LED_GPIO_PIN_25                     GPIO_NUM_25 
 // GPIO pin OF LED ON the PIN 26  
-#define LED_GPIO_PIN_26                 GPIO_NUM_26
+#define LED_GPIO_PIN_26                     GPIO_NUM_26
 // LED PWM frequency in Hz
-#define LED_FREQUENCY                   5000
+#define LED_FREQUENCY                       5000
 // LED channel for LED on pin 25
-#define LED_CHANNEL_25                  LEDC_CHANNEL_0       
+#define LED_CHANNEL_25                      LEDC_CHANNEL_0       
 // LED channel for LED on pin 26
-#define LED_CHANNEL_26                  LEDC_CHANNEL_1
+#define LED_CHANNEL_26                      LEDC_CHANNEL_1
 // Size of PWM resolution in bits
-#define LED_PWM_BIT_SIZE                13
+#define LED_PWM_BIT_SIZE                    13
 // Maximum PWM value
-#define LED_PWM_MAX                     ((1 << LED_PWM_BIT_SIZE) - 1)
+#define LED_PWM_MAX                         ((1 << LED_PWM_BIT_SIZE) - 1)
 // Minimum PWM value
-#define LED_PWM_MIN                     0
+#define LED_PWM_MIN                         0
 // Minimum hysteresis debounce samples
-#define HYSTERESIS_COUNT_MIN            4
+#define HYSTERESIS_COUNT_MIN                4
 // Maximum hysteresis debounce samples
-#define DEFAULT_HYSTERESIS_COUNT_MAX    10
+#define DEFAULT_HYSTERESIS_COUNT_MAX        10
 // Small interval threshold
-#define TOO_SMALL_INTERVAL              0.0001f
+#define TOO_SMALL_INTERVAL                  0.0001f
 // Default time for next measurement in milliseconds
 #define DEFAULT_TIME_FOR_NEXT_MEASUREMENT   200
 
@@ -131,15 +131,40 @@
  * =============================================================
 */
 
-// Size of serial buffer
-#define SERIAL_BUFFER_SIZE      512
 // Serial prompt mark
 #define SERIAL_MARK             "IMP_PROJ> "
+// Size of serial buffer
+#define SERIAL_BUFFER_SIZE      512
+// Size of other buffers
+#define BUFFER_SIZE             128
 // Serial communication baud rate
 #define SERIAL_BAUD_RATE        115200
-#define SERIAL_UART_NUM         UART_NUM_0
-#define SERIAL_TX_PIN           GPIO_NUM_17
-#define SERIAL_RX_PIN           GPIO_NUM_16
+// Timeout for reading from UART in milliseconds
+#define READ_TIMEOUT_MS         100
+// Timeout for restarting reading from UART in milliseconds
+#define RESTART_READ_DELAY_MS   10
+// ASCII backspace code
+#define ASCII_BACKSPACE         0x08
+// ASCII delete code
+#define ASCII_DELETE            0x7F
 
+/**
+ * ============================================================= 
+ *                   WIFI AND MQTT CONSTANTS
+ * =============================================================
+*/
+
+// WiFi SSID
+#define WIFI_SSID                       "imp-wifi"
+// WiFi Password
+#define WIFI_PASSWORD                   "imp-wifi"
+// Timeout for waiting for Wi-Fi event bits
+#define WIFI_EVENT_BITS_TIMEOUT_MS      20000
+// MQTT broker URI
+#define MQTT_URI                       "mqtt://10.105.233.42:1883"
+// MQTT topic
+#define MQTT_TOPIC_LUX                 "imp/sensor"
+// Size of JSON payload for MQTT messages
+#define JSON_PAYLOAD_SIZE               256
 
 #endif // CONSTANTS_H
