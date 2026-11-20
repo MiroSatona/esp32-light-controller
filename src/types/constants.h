@@ -1,6 +1,6 @@
 /**
  * @file constants.h
- * @author Martin Zůbek, 
+ * @author Martin Zůbek
  * @brief Header file for project constants and macros.
  * @date 2025-12-16
  */
@@ -168,7 +168,7 @@
 // WiFi Password
 #define WIFI_PASSWORD                   "imp-wifi"
 // MQTT broker URI
-#define MQTT_URI                        "mqtt://10.134.6.42:1883"
+#define MQTT_URI                        "mqtt://1.1.1.1:1883"
 
 /**
  * ============================================================

@@ -1,5 +1,5 @@
 # Makefile for IMP project at BUT FIT
-# Author: Martin Zůbek, 
+# Author: Martin Zůbek
 # Date: 17-12-2025
 
 # Bash for executing commands
@@ -11,9 +11,9 @@ IDF_PATH ?= $(HOME)/esp/esp-idf
 PROJECT_DIR := $(CURDIR)
 
 # Name of the zip with project files
-ZIP_NAME = .zip
+ZIP_NAME = imp_project.zip
 # Files and directories to include for zipping
-ZIP_FILES = Makefile CMakeLists.txt src/ web/ .pdf
+ZIP_FILES = Makefile CMakeLists.txt src/ web/ imp_doc.pdf
 
 # Helper function to call idf.py
 define IDF

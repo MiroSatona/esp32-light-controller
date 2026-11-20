@@ -1,6 +1,6 @@
 /**
  * @file led.c
- * @author Martin Zůbek, 
+ * @author Martin Zůbek
  * @brief Source file for LEDs init and handle brightness and handle thresholds.
  * @date 2025-12-16
  */

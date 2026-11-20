@@ -1,5 +1,5 @@
 # File: CMakeLists.txt
-# Author: Martin Zůbek, 
+# Author: Martin Zůbek
 # Date: 2025-12-17
 # Description: CMake configuration file for ESP-IDF project
 

@@ -1,6 +1,6 @@
 /**
  * @file sensor.c
- * @author Martin Zůebk, 
+ * @author Martin Zůbek
  * @brief Source file for I2C bus and BH1750 sensor initialization and lux value reading from BH1750 sensor.
  * @date 2025-12-17
  */

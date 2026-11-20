@@ -1,6 +1,6 @@
 /**
  * @file wifi.c
- * @author Martin Zůbek, 
+ * @author Martin Zůbek
  * @brief Implementation file for WiFi functionality.
  * @date 2025-12-17
  */

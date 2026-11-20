@@ -1,6 +1,6 @@
 /**
  * @file wifi.h
- * @author Martin Zůbek, 
+ * @author Martin Zůbek
  * @brief Header file for WiFi functionality.
  * @date 2025-12-17
  */

@@ -1,6 +1,6 @@
 /**
  * @file nonvolatile.c
- * @author Martin Zůbek, 
+ * @author Martin Zůbek
  * @brief Source file for non-volatile storage configuration provided by the user.
  * @date 2025-12-17
  */

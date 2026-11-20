@@ -1,6 +1,6 @@
 /**
  * @file mqtt.h
- * @author Martin Zůbek, 
+ * @author Martin Zůbek
  * @brief Header file for MQTT functionality.
  * @date 2025-12-17
  */

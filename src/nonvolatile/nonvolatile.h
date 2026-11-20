@@ -1,6 +1,6 @@
 /**
  * @file nonvolatile.h
- * @author Martin Zůbek, 
+ * @author Martin Zůbek
  * @brief Header file for non-volatile storage configuration provided by the user.
  * @date 2025-12-17
  */
